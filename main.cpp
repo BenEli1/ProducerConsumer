@@ -86,7 +86,7 @@ typedef struct Producer {
     int amount;
 } producer;
 string catg[] = {"SPORTS", "WEATHER", "NEWS"};
-vector<BoundedQueue *> BoundedQueueProducers;
+vector<BoundedQueue *> BoundedQueueProducers(100);
 UnBoundedQueue *S = new UnBoundedQueue();
 UnBoundedQueue *W = new UnBoundedQueue();
 UnBoundedQueue *N = new UnBoundedQueue();
@@ -94,10 +94,10 @@ UnBoundedQueue *N = new UnBoundedQueue();
 void* produce(Producer p) {
     int size = p.size, amount = p.amount, id = p.id;
     char x[100];
-    BoundedQueueProducers.push_back(new BoundedQueue(size));
+    BoundedQueueProducers[id-1]=new BoundedQueue(size);
     for (int j = 0; j < amount; j++) {
         sprintf(x, "Producer %d %s %d", id, catg[j % 3].c_str(), j+1);
-        BoundedQueueProducers.at(id - 1)->insert(x);
+            BoundedQueueProducers[id-1]->insert(x);
     }
     usleep(10000);
     sprintf(x, "DONE");
@@ -173,6 +173,7 @@ void *dispatcher(int size) {
 int main(int argc, char *argv[]) {
     string filename = argv[1];
     string line;
+    //file name is an absolute path!!
     ifstream ifs(filename);
     if (!ifs)
         std::cerr << "couldn't open conf.txt for reading\n";
@@ -181,6 +182,7 @@ int main(int argc, char *argv[]) {
     int productAmount = 0;
     int size = 0;
     int sizeScreenBuffer = 0;
+    producer p;
     vector<Producer> producersVector;
     while (getline(ifs, line)) {
         if (line == "") {
@@ -196,7 +198,6 @@ int main(int argc, char *argv[]) {
         }
         if (counter == 3) {
             size = stoi(line);
-            producer p;
             p.amount = productAmount;
             p.size = size;
             p.id = producerId;
@@ -207,8 +208,8 @@ int main(int argc, char *argv[]) {
     vector<thread> threads;
     BoundedQueue *Screen = new BoundedQueue(sizeScreenBuffer);
     int vectorSize = producersVector.size();
-    for (int i = 0; i < producersVector.size(); i++) {
-        thread th(produce, producersVector[i]);
+    for (int m = 0; m < vectorSize; m++) {
+        thread th(produce, producersVector[m]);
         threads.push_back(move(th));
     }
     thread th(dispatcher, vectorSize);
