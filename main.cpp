@@ -20,7 +20,7 @@ class BoundedQueue {
 
 public:
     BoundedQueue(int n) {
-        sem_init(&empty, 0, n);
+        sem_init(&empty, 0, n-1);
         sem_init(&full, 0, 0);
     }
 
@@ -99,7 +99,9 @@ void* produce(Producer p) {
         sprintf(x, "Producer %d %s %d", id, catg[j % 3].c_str(), j+1);
         BoundedQueueProducers.at(id - 1)->insert(x);
     }
+    usleep(10000);
     sprintf(x, "DONE");
+//    cout<<"line 103 "<<id<<endl;
     BoundedQueueProducers.at(id - 1)->insert(x);
 }
 //coeditor
@@ -108,6 +110,7 @@ void *coEditor(UnBoundedQueue *q, BoundedQueue *screen) {
     while ((val = (q->remove())).find("DONE") == string::npos) {
         screen->insert(val);
     }
+    usleep(10000);
     screen->insert("DONE");
 }
 //screen
@@ -128,6 +131,7 @@ void *dispatcher(int size) {
     vector<int>v;
     bool flag = true;
     while (v.size()!=size) {
+//        cout<<"line 131 "<<i<<endl;
         if (BoundedQueueProducers[i] != nullptr) {
             val = BoundedQueueProducers[i]->remove();
             if (val.find("NEWS") != string::npos) {
@@ -158,6 +162,7 @@ void *dispatcher(int size) {
         i++;
         i = i % (size);
     }
+    usleep(10000);
     val = "DONE";
     N->insert(val);
     S->insert(val);
