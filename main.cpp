@@ -1,10 +1,7 @@
 #include <iostream>
 #include <string.h>
 #include <queue>
-#include <pthread.h>
-#include<thread>
-#include <stdlib.h>
-#include <string.h>
+#include <thread>
 #include <unistd.h>
 #include <stdio.h>
 #include <mutex>
@@ -13,6 +10,7 @@
 #include <vector>
 
 using namespace std;
+
 class BoundedQueue{
     queue<string> q;
     mutex m;	/* mutual exclusion semaphore  */
@@ -46,6 +44,7 @@ public:
     }
 
 };
+
 class UnBoundedQueue{
     queue<string> q;
     mutex m;	/* mutual exclusion semaphore  */
@@ -76,15 +75,44 @@ public:
 
 };
 
-pthread_t ntid;
-char* catg[]={"SPORTS","WEATHER","NEWS"};
-int id = 0;
-vector<BoundedQueue*> ProducersVector;
-char* produce(int i){
-    char *x;
-    sprintf(x,"Producer %d %s %d",i,catg[id%3],id++);
-    return x;
+
+
+
+
+typedef struct Producer{
+    int id;
+    int size;
+    int amount;
+}producer;
+string catg[]={"SPORTS","WEATHER","NEWS"};
+vector<BoundedQueue*> BoundedQueueProducers;
+UnBoundedQueue* S=new UnBoundedQueue();
+UnBoundedQueue* W=new UnBoundedQueue();
+UnBoundedQueue* N=new UnBoundedQueue();
+
+void produce(Producer p){
+    int size=p.size,amount=p.amount,id=p.id;
+    char x[100];
+    BoundedQueueProducers.push_back(new BoundedQueue(size));
+    for(int j =0;j<amount;j++){
+        sprintf(x,"Producer %d %s %d",id,catg[j%3].c_str(),j);
+        BoundedQueueProducers.at(id-1)->insert(x);
+    }
 }
+void* dispatcher(){
+    int i=0;
+    int counter=0;
+    string val;
+    while(counter<BoundedQueueProducers.size())
+        if(BoundedQueueProducers[i]!= nullptr){
+            val = BoundedQueueProducers[i]->remove();
+
+        }
+    i++;
+    i=i%BoundedQueueProducers.size();
+    }
+
+
 int main(int argc, char *argv[]) {
     string filename = argv[1];
     string line;
@@ -94,8 +122,10 @@ int main(int argc, char *argv[]) {
     int counter=0;
     int producerId =0;
     int productAmount=0;
+    int size=0;
+    vector<Producer> producersVector;
     while (getline(ifs, line)){
-        if(line=="\n"){
+        if(line==""){
             getline(ifs, line);
         }
             counter++;
@@ -106,18 +136,19 @@ int main(int argc, char *argv[]) {
                 productAmount=stoi(line);
             }
             if (counter == 3) {
-                ProducersVector.push_back(new BoundedQueue(stoi(line)));
-                for(int i =0;i<productAmount;i++){
-                    ProducersVector.at(producerId)->insert(produce(producerId));
-                }
+                size=stoi(line);
+                producer p;
+                p.amount=productAmount;
+                p.size=size;
+                p.id=producerId;
+                producersVector.push_back(p);
                 counter = 0;
             }
         }
-
-    int    err;
-    err = pthread_create(&ntid, NULL, NULL, NULL);
-    if (err != 0)
-        perror("can't create thread:{err}");
+    for(int i =0;i<producersVector.size();i++){
+        thread th(produce,producersVector[i]);
+        th.join();
+    }
     return 0;
 }
 
