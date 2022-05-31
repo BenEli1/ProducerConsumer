@@ -20,7 +20,7 @@ class BoundedQueue {
     mutex m;    /* mutual exclusion semaphore  */
     sem_t empty;    /* count of empty buffer slots */
     sem_t full;    /* count of full  buffer slots */
-
+ 
 public:
     BoundedQueue(int n) {
         sem_init(&empty, 0, n);
