@@ -10,6 +10,7 @@
 #include <vector>
 
 using namespace std;
+
 /*
  * Bounded queue -  has a mutex for locking access to the queue,
  * and 2 semaphores - full and empty meaning how much space left/taken in queue
@@ -19,7 +20,6 @@ class BoundedQueue {
     mutex m;    /* mutual exclusion semaphore  */
     sem_t empty;    /* count of empty buffer slots */
     sem_t full;    /* count of full  buffer slots */
-//    string value;
 
 public:
     BoundedQueue(int n) {
@@ -49,6 +49,7 @@ public:
     }
 
 };
+
 /*
  * UnBounded queue -  has a mutex for locking access to the queue,
  * and 1 semaphores - full meaning how much space taken in queue.
@@ -57,7 +58,6 @@ class UnBoundedQueue {
     queue<string> q;
     mutex m;    /* mutual exclusion semaphore  */
     sem_t full;    /* count of empty buffer slots */
-//    string value;
 
 public:
     UnBoundedQueue() {
@@ -111,12 +111,12 @@ void *produce(Producer p) {
     int size = p.size, amount = p.amount, id = p.id;
     char x[100];
     //random in order to get random categories
-    int r = rand()%3;
+    int r = rand() % 3;
     BoundedQueueProducers[id - 1] = new BoundedQueue(size);
     for (int j = 0; j < amount; j++) {
         sprintf(x, "Producer %d %s %d", id, category[r].c_str(), j + 1);
         BoundedQueueProducers[id - 1]->insert(x);
-        r = rand()%3;
+        r = rand() % 3;
     }
     usleep(10000);
     sprintf(x, "DONE");
@@ -176,7 +176,6 @@ void *dispatcher(int size) {
 }
 
 
-
 /* co-editor
  * gets as an argument the screen bounded queue and an unbounded queue specific for him - N,S,W
  * he transfers messages to the screen printer and sends done in the end.
@@ -203,7 +202,6 @@ void *screenPrinter(BoundedQueue *screen) {
         counter++;
     }
 }
-
 
 
 int main(int argc, char *argv[]) {
