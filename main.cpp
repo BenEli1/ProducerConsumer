@@ -10,7 +10,7 @@
 #include <vector>
 
 using namespace std;
-
+// command to run - g++ -std=c++11 -o ex3.out -pthread main.cpp
 /*
  * Bounded queue -  has a mutex for locking access to the queue,
  * and 2 semaphores - full and empty meaning how much space left/taken in queue
@@ -23,7 +23,7 @@ class BoundedQueue {
 
 public:
     BoundedQueue(int n) {
-        sem_init(&empty, 0, n - 1);
+        sem_init(&empty, 0, n);
         sem_init(&full, 0, 0);
     }
 
@@ -107,7 +107,7 @@ UnBoundedQueue *N = new UnBoundedQueue();
  * and then for the amount of items given in conf file he adds to that queue.
  * send done in the end to notify the dispatcher that the bounded queue of producer i is done.
 */
-void *produce(Producer p) {
+void produce(Producer p) {
     int size = p.size, amount = p.amount, id = p.id;
     char x[100];
     //random in order to get random categories
@@ -129,14 +129,15 @@ void *produce(Producer p) {
  * every messages he gets he puts in the unbounded queue according to the news category
  * and sends done in the end for every queue.
  */
-void *dispatcher(int size) {
+void dispatcher(int size) {
     int i = 0;
     string val;
     //vector of ints that means what indexes are null in the BoundedQueueProducers
     //when it gets to the size of the bounded queue of producers we send a done message.
     vector<int> v;
+    int doneCounter = 0;
     bool flag = true;
-    while (v.size() != size) {
+    while (doneCounter != size) {
 //        cout<<"line 131 "<<i<<endl;
         if (BoundedQueueProducers[i] != nullptr) {
             val = BoundedQueueProducers[i]->remove();
@@ -151,20 +152,21 @@ void *dispatcher(int size) {
             }
             if (val.find("DONE") != string::npos) {
                 BoundedQueueProducers[i] = nullptr;
+                doneCounter++;
             }
         }
-        //checking that all
-        if (BoundedQueueProducers[i] == nullptr) {
-            for (auto x: v) {
-                if (x == i) {
-                    flag = false;
-                }
-            }
-            if (flag) {
-                v.push_back(i);
-            }
-            flag = true;
-        }
+        //checking that all are null
+//        if (BoundedQueueProducers[i] == nullptr) {
+//            for (auto x: v) {
+//                if (x == i) {
+//                    flag = false;
+//                }
+//            }
+//            if (flag) {
+//                v.push_back(i);
+//            }
+//            flag = true;
+//        }
         i++;
         i = i % (size);
     }
@@ -180,19 +182,20 @@ void *dispatcher(int size) {
  * gets as an argument the screen bounded queue and an unbounded queue specific for him - N,S,W
  * he transfers messages to the screen printer and sends done in the end.
  */
-void *coEditor(UnBoundedQueue *q, BoundedQueue *screen) {
+void coEditor(UnBoundedQueue *q, BoundedQueue *screen) {
     string val;
     while ((val = (q->remove())).find("DONE") == string::npos) {
         screen->insert(val);
     }
     usleep(10000);
     screen->insert("DONE");
+    delete q;
 }
 
 /* screen printer
  * gets messages from co editors and prints them to the screen until he receives 3 done messages.
  */
-void *screenPrinter(BoundedQueue *screen) {
+void screenPrinter(BoundedQueue *screen) {
     string val;
     int counter = 0;
     while (counter < 3) {
@@ -201,18 +204,20 @@ void *screenPrinter(BoundedQueue *screen) {
         }
         counter++;
     }
+    delete screen;
 }
 
 
-int main(int argc, char *argv[]) {
-    //file reading - gets as an argument the abs path.
-    string filename = argv[1];
+int main() {
+    //file reading config txt in relative path
+    string filename = "config.txt";
     string line;
-    //file name is an absolute path!!
+
     ifstream ifs(filename);
-    if (!ifs)
-        std::cerr << "couldn't open conf.txt for reading\n";
-    //counter used to know what kind of information we get from conf.txt
+    if (!ifs) {
+        std::cerr << "couldn't open config.txt for reading\n";
+    }
+    //counter used to know what kind of information we get from config.txt
     int counter = 0;
     //the producer id
     int producerId = 0;
@@ -250,7 +255,7 @@ int main(int argc, char *argv[]) {
     vector<thread> threads;
     BoundedQueue *Screen = new BoundedQueue(sizeScreenBuffer);
     int vectorSize = producersVector.size();
-    BoundedQueueProducers.resize(vectorSize + 1);
+    BoundedQueueProducers.resize(vectorSize);
     //creating threads for each producer,dispatcher,co editor and screen printer
     for (int m = 0; m < vectorSize; m++) {
         thread th(produce, producersVector[m]);
