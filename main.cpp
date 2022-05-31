@@ -10,17 +10,20 @@
 #include <vector>
 
 using namespace std;
-
+/*
+ * Bounded queue -  has a mutex for locking access to the queue,
+ * and 2 semaphores - full and empty meaning how much space left/taken in queue
+ */
 class BoundedQueue {
     queue<string> q;
     mutex m;    /* mutual exclusion semaphore  */
     sem_t empty;    /* count of empty buffer slots */
     sem_t full;    /* count of full  buffer slots */
-    string value;
+//    string value;
 
 public:
     BoundedQueue(int n) {
-        sem_init(&empty, 0, n-1);
+        sem_init(&empty, 0, n - 1);
         sem_init(&full, 0, 0);
     }
 
@@ -46,12 +49,15 @@ public:
     }
 
 };
-
+/*
+ * UnBounded queue -  has a mutex for locking access to the queue,
+ * and 1 semaphores - full meaning how much space taken in queue.
+ */
 class UnBoundedQueue {
     queue<string> q;
     mutex m;    /* mutual exclusion semaphore  */
     sem_t full;    /* count of empty buffer slots */
-    string value;
+//    string value;
 
 public:
     UnBoundedQueue() {
@@ -79,58 +85,58 @@ public:
 
 };
 
-
+//struct for saving a certain producer
 typedef struct Producer {
     int id;
     int size;
     int amount;
 } producer;
-string catg[] = {"SPORTS", "WEATHER", "NEWS"};
-vector<BoundedQueue *> BoundedQueueProducers(100);
+//category array
+string category[] = {"SPORTS", "WEATHER", "NEWS"};
+
+//bounded queues for each producer that he shares with the dispatcher.
+vector<BoundedQueue *> BoundedQueueProducers;
+
+//unbounded queues for dispatcher and co editors.
+
 UnBoundedQueue *S = new UnBoundedQueue();
 UnBoundedQueue *W = new UnBoundedQueue();
 UnBoundedQueue *N = new UnBoundedQueue();
-//producer
-void* produce(Producer p) {
+
+/*producer - adds a new bounded queue to the vector of bounded queues,
+ * and then for the amount of items given in conf file he adds to that queue.
+ * send done in the end to notify the dispatcher that the bounded queue of producer i is done.
+*/
+void *produce(Producer p) {
     int size = p.size, amount = p.amount, id = p.id;
     char x[100];
-    BoundedQueueProducers[id-1]=new BoundedQueue(size);
+    //random in order to get random categories
+    int r = rand()%3;
+    BoundedQueueProducers[id - 1] = new BoundedQueue(size);
     for (int j = 0; j < amount; j++) {
-        sprintf(x, "Producer %d %s %d", id, catg[j % 3].c_str(), j+1);
-            BoundedQueueProducers[id-1]->insert(x);
+        sprintf(x, "Producer %d %s %d", id, category[r].c_str(), j + 1);
+        BoundedQueueProducers[id - 1]->insert(x);
+        r = rand()%3;
     }
     usleep(10000);
     sprintf(x, "DONE");
 //    cout<<"line 103 "<<id<<endl;
     BoundedQueueProducers.at(id - 1)->insert(x);
 }
-//coeditor
-void *coEditor(UnBoundedQueue *q, BoundedQueue *screen) {
-    string val;
-    while ((val = (q->remove())).find("DONE") == string::npos) {
-        screen->insert(val);
-    }
-    usleep(10000);
-    screen->insert("DONE");
-}
-//screen
-void *screenPrinter(BoundedQueue *screen) {
-    string val;
-    int counter = 0;
-    while (counter < 3) {
-        while ((val = (screen->remove())).find("DONE") == string::npos) {
-            cout << val << endl;
-        }
-        counter++;
-    }
-}
-//dispatcher
+
+/* dispatcher
+ * gets values from producer bounded queue and in the end gets "done" message,
+ * every messages he gets he puts in the unbounded queue according to the news category
+ * and sends done in the end for every queue.
+ */
 void *dispatcher(int size) {
     int i = 0;
     string val;
-    vector<int>v;
+    //vector of ints that means what indexes are null in the BoundedQueueProducers
+    //when it gets to the size of the bounded queue of producers we send a done message.
+    vector<int> v;
     bool flag = true;
-    while (v.size()!=size) {
+    while (v.size() != size) {
 //        cout<<"line 131 "<<i<<endl;
         if (BoundedQueueProducers[i] != nullptr) {
             val = BoundedQueueProducers[i]->remove();
@@ -144,20 +150,20 @@ void *dispatcher(int size) {
                 W->insert(val);
             }
             if (val.find("DONE") != string::npos) {
-                BoundedQueueProducers[i]= nullptr;
+                BoundedQueueProducers[i] = nullptr;
             }
         }
-        if(BoundedQueueProducers[i] == nullptr){
-            for(auto x : v){
-                if(x==i)
-                {
-                    flag=false;
+        //checking that all
+        if (BoundedQueueProducers[i] == nullptr) {
+            for (auto x: v) {
+                if (x == i) {
+                    flag = false;
                 }
             }
-            if(flag){
+            if (flag) {
                 v.push_back(i);
             }
-            flag=true;
+            flag = true;
         }
         i++;
         i = i % (size);
@@ -170,19 +176,56 @@ void *dispatcher(int size) {
 }
 
 
+
+/* co-editor
+ * gets as an argument the screen bounded queue and an unbounded queue specific for him - N,S,W
+ * he transfers messages to the screen printer and sends done in the end.
+ */
+void *coEditor(UnBoundedQueue *q, BoundedQueue *screen) {
+    string val;
+    while ((val = (q->remove())).find("DONE") == string::npos) {
+        screen->insert(val);
+    }
+    usleep(10000);
+    screen->insert("DONE");
+}
+
+/* screen printer
+ * gets messages from co editors and prints them to the screen until he receives 3 done messages.
+ */
+void *screenPrinter(BoundedQueue *screen) {
+    string val;
+    int counter = 0;
+    while (counter < 3) {
+        while ((val = (screen->remove())).find("DONE") == string::npos) {
+            cout << val << endl;
+        }
+        counter++;
+    }
+}
+
+
+
 int main(int argc, char *argv[]) {
+    //file reading - gets as an argument the abs path.
     string filename = argv[1];
     string line;
     //file name is an absolute path!!
     ifstream ifs(filename);
     if (!ifs)
         std::cerr << "couldn't open conf.txt for reading\n";
+    //counter used to know what kind of information we get from conf.txt
     int counter = 0;
+    //the producer id
     int producerId = 0;
+    //the amount the producer wants to create
     int productAmount = 0;
+    //the size of the bounded queue
     int size = 0;
+    //the size of the screen printer bounded queue
     int sizeScreenBuffer = 0;
     producer p;
+    //vector of producers - later creating a vector of bounded queues using produce.
     vector<Producer> producersVector;
     while (getline(ifs, line)) {
         if (line == "") {
@@ -205,9 +248,12 @@ int main(int argc, char *argv[]) {
             counter = 0;
         }
     }
+    //thread vector in order to use join on them.
     vector<thread> threads;
     BoundedQueue *Screen = new BoundedQueue(sizeScreenBuffer);
     int vectorSize = producersVector.size();
+    BoundedQueueProducers.resize(vectorSize + 1);
+    //creating threads for each producer,dispatcher,co editor and screen printer
     for (int m = 0; m < vectorSize; m++) {
         thread th(produce, producersVector[m]);
         threads.push_back(move(th));
