@@ -154,6 +154,7 @@ void dispatcher(int size) {
                 W->insert(val);
             }
             if (val.find("DONE") != string::npos) {
+                delete BoundedQueueProducers[i];
                 BoundedQueueProducers[i] = nullptr;
                 doneCounter++;
             }
@@ -218,9 +219,10 @@ int main() {
     int size = 0;
     //the size of the screen printer bounded queue
     int sizeScreenBuffer = 0;
+//    producer p = (producer*)malloc(sizeof(producer) +1);
     producer p;
     //vector of producers - later creating a vector of bounded queues using produce.
-    vector<Producer> producersVector;
+    vector<producer> producersVector;
     while (getline(ifs, line)) {
         if (line == "") {
             getline(ifs, line);
