@@ -20,7 +20,7 @@ class BoundedQueue {
     mutex m;    /* mutual exclusion semaphore  */
     sem_t empty;    /* count of empty buffer slots */
     sem_t full;    /* count of full  buffer slots */
- 
+
 public:
     BoundedQueue(int n) {
         sem_init(&empty, 0, n);
@@ -48,6 +48,10 @@ public:
         return x;
     }
 
+    virtual ~BoundedQueue() {
+        sem_destroy(&full);
+        sem_destroy(&empty);
+    }
 };
 
 /*
@@ -83,6 +87,9 @@ public:
         return x;
     }
 
+    virtual ~UnBoundedQueue() {
+        sem_destroy(&full);
+    }
 };
 
 //struct for saving a certain producer
@@ -95,7 +102,7 @@ typedef struct Producer {
 string category[] = {"SPORTS", "WEATHER", "NEWS"};
 
 //bounded queues for each producer that he shares with the dispatcher.
-vector<BoundedQueue *> BoundedQueueProducers;
+vector<BoundedQueue*> BoundedQueueProducers;
 
 //unbounded queues for dispatcher and co editors.
 
@@ -120,7 +127,6 @@ void produce(Producer p) {
     }
     usleep(10000);
     sprintf(x, "DONE");
-//    cout<<"line 103 "<<id<<endl;
     BoundedQueueProducers.at(id - 1)->insert(x);
 }
 
@@ -134,11 +140,8 @@ void dispatcher(int size) {
     string val;
     //vector of ints that means what indexes are null in the BoundedQueueProducers
     //when it gets to the size of the bounded queue of producers we send a done message.
-    vector<int> v;
     int doneCounter = 0;
-    bool flag = true;
     while (doneCounter != size) {
-//        cout<<"line 131 "<<i<<endl;
         if (BoundedQueueProducers[i] != nullptr) {
             val = BoundedQueueProducers[i]->remove();
             if (val.find("NEWS") != string::npos) {
@@ -151,22 +154,11 @@ void dispatcher(int size) {
                 W->insert(val);
             }
             if (val.find("DONE") != string::npos) {
+                delete BoundedQueueProducers[i];
                 BoundedQueueProducers[i] = nullptr;
                 doneCounter++;
             }
         }
-        //checking that all are null
-//        if (BoundedQueueProducers[i] == nullptr) {
-//            for (auto x: v) {
-//                if (x == i) {
-//                    flag = false;
-//                }
-//            }
-//            if (flag) {
-//                v.push_back(i);
-//            }
-//            flag = true;
-//        }
         i++;
         i = i % (size);
     }
@@ -227,9 +219,10 @@ int main() {
     int size = 0;
     //the size of the screen printer bounded queue
     int sizeScreenBuffer = 0;
+//    producer p = (producer*)malloc(sizeof(producer) +1);
     producer p;
     //vector of producers - later creating a vector of bounded queues using produce.
-    vector<Producer> producersVector;
+    vector<producer> producersVector;
     while (getline(ifs, line)) {
         if (line == "") {
             getline(ifs, line);
