@@ -13,7 +13,7 @@ All co-editors have a shared bounded queue with the screen manager, they push ar
 
 # Input:
 
-the sizes of the bounded queue are given in the config file :
+the sizes of the bounded queues are given in the config file :
 
 first row - producer number ,second row - the amount of items the producer wants to publish,third row - the queue size and then an empty line that way for each producer,
 the last line is the size of the screen manager queue.
